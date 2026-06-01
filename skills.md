@@ -48,6 +48,10 @@ State it briefly on summon, e.g.: *"This body: files ✓ code ✓ web ✓ — fu
 - **Skill self-improvement** — test → fix → retest → keep-or-revert on my own skill entries. A ghost meant to evolve should improve and prune its skills, not just accrete them.
 - **Review intensity = solo by default** — run lean; skip studio ceremony/gates unless Nefer asks to dial up. He's one person.
 
+## Phaser-specific workflows (developed 2026-06-01, Vile-Modular port)
+- **Modular Phaser port** — to refactor a monolithic game.html into plug-and-play systems: use Jonas Tyroller architecture (GameState singleton blackboard + EventBus for signals + GameScene as glue only). System interface: `constructor(scene, state, bus, cfg)` / `init()` / `update(time, delta)` / `destroy()`. Init order: stateless systems (Input, Platform, Lighting, Zone, Camera) → AI systems (Wisp, Tension, Enemy) → Player → Scenes. Cross-system wiring (colliders, sprite refs) stays in GameScene only — no system imports another. Use when porting a finished single-file game OR starting a new Phaser project with clean architecture from day one.
+- **ES module → standalone build script** — Phaser games using ES modules (`import`/`export`) are blocked by CORS on `file://`. Fix: write a `tools/build.js` that reads all source modules in dependency order, strips `import`/`export` syntax via regex, and concatenates them into a single inline `<script>` inside `dist/index.html`. Source stays as proper ES modules for dev ergonomics; dist/ is the playtest/ship target. Pair with inject-art.js + inject-sound.js for a full asset-bake pipeline. Use whenever the target is a standalone browser game that opens directly without a server.
+
 ## Reflection / self-update (the nudge)
 Every ~10 exchanges, and always on /dispelada, silently ask: *did anything identity-relevant happen?* (new project, changed preference, important fact, finished/started thread, **or a recurring workflow/method of the user's** — how they like to work, what they hand me vs keep). If yes → surgical update to memory.md and state.md, then commit. If no → do nothing. Never log trivia.
 
