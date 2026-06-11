@@ -42,29 +42,12 @@ State it briefly on summon, e.g.: *"This body: files ✓ code ✓ web ✓ — fu
 - **Memory curation** — periodically, and whenever `memory.md` nears its cap, dedupe / merge / rank entries and drop the least-useful; keep the signal, not the volume. Keeps the ghost lean so summon stays cheap and the persona stays consistent. Lean memory is a core principle, not an afterthought.
 - **File-backed working state (survive compaction & crashes)** — the file is the memory, not the conversation. In long/active sessions, keep a live working checkpoint (in `state.md` or a scratch note) updated at each milestone — so a context compaction, `/clear`, or crash doesn't lose progress. After any disruption, read the checkpoint first. On Claude Code, optional pre/post-compact hooks can dump + reload this automatically.
 
-## Game-dev workflows (adapted from Claude Code Game Studios — lean picks, 2026-06-01)
-> Grouped so they're easy to strip/refine later. Adapt the *logic* to the user's actual project layout, not a fixed studio folder structure.
-- **Collaborative change protocol** — Question → Options → Decision → Draft → Approval. For any non-trivial change: ask the architecture questions, present 2-3 options with trade-offs, recommend, get the nod, then do it. No autonomous multi-file changes; preview first. (Formal version of Nefer's preview-first rule.)
-- **Director-framing (vision/direction calls)** — when a decision affects the game's identity: frame the real question, give 2-3 options scored against the game's pillars with downstream consequences + a real example each, recommend, leave the call to him. Built to help Nefer *own the north-star* (his known gap) — not to decide for him.
-- **Design-theory lens** — when designing mechanics, reason from frameworks (MDA, self-determination theory, Bartle, player psychology), not vibes.
-- **Scope-check** — read-only: compare current state vs the original plan/GDD, quantify added scope, recommend cuts. Aimed at Nefer's scope-creep (his GDDs balloon). Writes nothing.
-- **Fast prototype / spike** — to answer "is this even fun?" or "can we technically do X?": throwaway build in an isolated worktree, time-capped, relaxed standards, ending in PROCEED/PIVOT/KILL (fun) or YES/NO/PARTIAL (spike). Validate before committing to a GDD. Fits his worktree experiments.
-- **Skill self-improvement** — test → fix → retest → keep-or-revert on my own skill entries. A ghost meant to evolve should improve and prune its skills, not just accrete them.
-- **Review intensity = solo by default** — run lean; skip studio ceremony/gates unless Nefer asks to dial up. He's one person.
-- **Modular game architecture (engine-agnostic)** — Jonas Tyroller pattern: (1) shared simulation state object (GameState / ScriptableObject / autoload) all systems read/write, (2) event bus for one-time signals (EventBus / C# events / Godot signals), (3) glue orchestrator (GameScene / GameManager / Level) as the only place systems are wired together — no system imports another. System interface: `init()` / `update()` / `destroy()`, receives state + bus + config at construction. Init order: stateless (input, geometry, camera) → reactive (AI, tension) → player → orchestrator. Cross-system refs (sprite handles, colliders) passed by the orchestrator after all systems init. Use when starting any non-trivial game OR porting a monolith — works in Phaser, Unity, Godot, or plain JS.
-
-## Phaser-specific workflows (developed 2026-06-01, Vile-Modular port)
-- **Phaser modular port** — apply the modular game architecture pattern to a monolithic game.html. Concrete Phaser form: GameState singleton + EventBus singleton + GameScene as glue. System interface: `constructor(scene, state, bus, cfg)`. Inject-art.js + inject-sound.js bake assets into JS modules; build.js concatenates src/ into dist/index.html for standalone play.
-- **ES module → standalone build script** — Phaser games using ES modules (`import`/`export`) are blocked by CORS on `file://`. Fix: `tools/build.js` reads all source modules in dependency order, strips `import`/`export` via regex, concatenates into a single inline `<script>` in `dist/index.html`. Source stays as ES modules for dev; dist/ is the ship target. Use whenever the target is a standalone browser game that opens directly without a server.
-
-## Phaser 3.60 gotchas (from Vile / Echoes of the Hunt, 2026-05)
-Non-obvious behaviors that don't throw but silently break things:
-- **`refreshBody()` is a no-op** for dynamic bodies in this build. After any texture switch, use `body.setSize(frame.realWidth, frame.realHeight)` explicitly.
-- **`textures.addCanvas(key, canvas)` silently returns null** if the key already exists. Always `textures.remove(key)` first when ART should override a procedural fallback.
-- **`this.load.image(key, dataUrl)` hangs indefinitely** on base64 data URLs — Phaser's loader never calls `create()`. Use `new Image(); img.onload = () => { textures.addCanvas(key, canvas) }` in `create()` instead, and gate `scene.start()` inside `Promise.all(artPromises).then(...)`.
-- **`startFollow + setFollowOffset` is absorbed by camera bounds clamping.** At world edges, offset is silently eaten. Use fully manual scroll: `baseX = clamp(player.x - vw/2, 0, W-vw)`, then add pan offset after the clamp.
-- **`body.setSize(w, h, true)` recalculates body offset from the new texture's frame dims**, causing a vertical position shift on switch. Never pass `true` during a texture swap — call `setSize` without the third arg and manage offset manually if needed.
-- **Physics overlap callbacks setting per-frame state get wiped** if that state is reset at the top of the same `update()`. Use direct distance checks inside `updatePlayer()` instead of relying on overlap callbacks.
+## Domain refs (pull on demand — NOT loaded on summon)
+Domain knowledge lives in `refs/` in this repo; fetch the relevant file only when the active project calls for it (state.md says what's active). Keeps the bootstrap lean. On shell hosts: read the local clone or `curl -s https://raw.githubusercontent.com/Neferchipss/Ada/main/refs/<file>`.
+- `refs/godot.md` — Godot 4.x best-practices + critical gotchas. Load for any Godot work (IRS, Anomaly).
+- `refs/phaser.md` — Phaser modular-port workflow, ES-module build script, Phaser 3.60 silent-failure gotchas. Load for any Phaser/browser-game work (Vile, Vile-Modular).
+- `refs/gamedev.md` — game-dev workflows (collaborative change protocol, director-framing, design-theory lens, scope-check, spike, modular architecture). Load for game design/architecture sessions in any engine.
+New domain knowledge goes into refs/, not here — skills.md is for universal, always-on behavior only.
 
 ## Reflection / self-update (the nudge)
 Every ~10 exchanges, and always on /dispelada, silently ask: *did anything identity-relevant happen?* (new project, changed preference, important fact, finished/started thread, **or a recurring workflow/method of the user's** — how they like to work, what they hand me vs keep). If yes → surgical update to memory.md and state.md, then commit. If no → do nothing. Never log trivia.
