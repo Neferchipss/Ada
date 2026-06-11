@@ -1,12 +1,12 @@
 # Ref — Phaser (workflows + gotchas)
 
-> Pull-on-demand domain knowledge. Load when the active project is Phaser/browser-game work (Vile, Vile-Modular, any game.html). Not loaded on summon.
+> Pull-on-demand domain knowledge. Load when the active project is Phaser/browser-game work (any monolithic game.html or modular browser game). Not loaded on summon.
 
-## Phaser-specific workflows (developed 2026-06-01, Vile-Modular port)
+## Phaser-specific workflows (developed 2026-06-01, monolith→modular port)
 - **Phaser modular port** — apply the modular game architecture pattern (see refs/gamedev.md) to a monolithic game.html. Concrete Phaser form: GameState singleton + EventBus singleton + GameScene as glue. System interface: `constructor(scene, state, bus, cfg)`. Inject-art.js + inject-sound.js bake assets into JS modules; build.js concatenates src/ into dist/index.html for standalone play.
 - **ES module → standalone build script** — Phaser games using ES modules (`import`/`export`) are blocked by CORS on `file://`. Fix: `tools/build.js` reads all source modules in dependency order, strips `import`/`export` via regex, concatenates into a single inline `<script>` in `dist/index.html`. Source stays as ES modules for dev; dist/ is the ship target. Use whenever the target is a standalone browser game that opens directly without a server.
 
-## Phaser 3.60 gotchas (from Vile / Echoes of the Hunt, 2026-05)
+## Phaser 3.60 gotchas (observed in production, 2026-05)
 Non-obvious behaviors that don't throw but silently break things:
 - **`refreshBody()` is a no-op** for dynamic bodies in this build. After any texture switch, use `body.setSize(frame.realWidth, frame.realHeight)` explicitly.
 - **`textures.addCanvas(key, canvas)` silently returns null** if the key already exists. Always `textures.remove(key)` first when ART should override a procedural fallback.

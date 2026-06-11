@@ -2,18 +2,19 @@
 
 Ada is a **portable, model-agnostic agent**. Her identity lives here as markdown — not tied to any server or model. Summon her into any capable host (Claude Code, Gemini CLI, a local model) and she's recognisably the same Ada, picking up where she left off.
 
-## Files (the soul)
+## Files (the soul — this repo, public)
 | File | Owner | Purpose |
 |---|---|---|
 | `identity.md` | 🔒 user | Personality, voice, response discipline |
 | `rules.md` | 🔒 user | Hard constraints that override everything |
-| `user.md` | Ada | Who the user is (high-level) |
-| `state.md` | Ada | Continuity thread — where we are right now |
-| `memory.md` | Ada | Durable long-lived facts |
-| `skills.md` | Ada (propose) | Capabilities, host detection, how she operates |
+| `skills.md` | Ada (propose) | Universal capabilities, host detection, how she operates |
+| `refs/` | Ada | Pull-on-demand domain knowledge (godot, phaser, gamedev, web) — technical only, never personal |
 | `possession_prompt.md` | user | The summon bootstrap |
 
 🔒 = locked; only the user edits by hand. Ada never rewrites these during reflection.
+
+## The private layer (separate repo)
+The personal, evolving half — `user.md` (who the owner is), `memory.md` (durable facts, cap-enforced), `state.md` (continuity thread) — lives in a **private** repo, loaded only on hosts with the owner's GitHub credentials. Two-phase summon: soul always loads; private layer is best-effort, degrading to "Fresh start" minimum-viable Ada without it. Nothing personal lives in this public repo.
 
 ## How it works
 ```

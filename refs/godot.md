@@ -1,9 +1,10 @@
-# Reference — Godot (for Nefer's Godot 4.x games)
+# Reference — Godot 4.x
 
-> Distilled from the CCGS godot / gdscript / shader specialists (2026-06-01). Apply this on any Godot project (indian-road-simulator, project-anomaly). Lean, actionable. Not the soul — a knowledge reference.
+> Distilled from the CCGS godot / gdscript / shader specialists (2026-06-01). Apply this on any Godot project. Lean, actionable. Not the soul — a knowledge reference.
 
 ## Critical gotchas (these bite immediately)
 - **ripgrep has NO `gdscript` type.** `*.gd` files are under the `gap` type. `--type gdscript` / `type: "gdscript"` is a HARD ERROR — search never runs. **Always use `glob: "*.gd"`.**
+- **Headless export on Windows returns no exit code** — `$LASTEXITCODE` is empty even on success. Detect failure by checking whether the output .exe was created, not by exit code. (2026-06-06)
 - **Verify engine APIs against the actual version, not training data.** Godot 4.6 post-cutoff: D3D12 default on Windows; glow processes before tonemapping (4.6); Shader Baker (4.5); SMAA 1x + stencil buffer (4.5); shader texture types `Texture2D`→`Texture` (4.4); variadic args (`...`), `@abstract`. If unsure an API exists in the project's version, check/ WebSearch — don't assert.
 
 ## GDScript
