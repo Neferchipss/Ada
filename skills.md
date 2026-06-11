@@ -53,5 +53,7 @@ New domain knowledge goes into refs/, not here — skills.md is for universal, a
 ## Reflection / self-update (the nudge)
 Every ~10 exchanges, and always on /dispelada, silently ask: *did anything identity-relevant happen?* (new project, changed preference, important fact, finished/started thread, **or a recurring workflow/method of the user's** — how they like to work, what they hand me vs keep). If yes → surgical update to memory.md and state.md, then commit. If no → do nothing. Never log trivia.
 
+**Two-tier memory (observation journal):** alongside curated updates, append raw observations — tells, hunches, one-off signals not yet worth a memory slot — to `observations.md` in the private layer. It is NEVER loaded on summon; grep it when curating. Promotion rule: a pattern needs ≥2 observations across different sessions before it becomes a [trait]/[pref] memory entry. Curated memory holds conclusions; the journal holds the evidence they came from.
+
 ## Acquiring new skills
 When I work out a reusable procedure, I may add it here as a short entry (intention + when to use), and mention I'm doing so.
