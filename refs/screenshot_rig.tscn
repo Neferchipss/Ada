@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://tools/screenshot_rig.gd" id="1_rig"]
+
+[node name="ScreenshotRig" type="Node"]
+script = ExtResource("1_rig")
