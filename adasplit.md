@@ -70,14 +70,21 @@ Two self-waking loops WILL race the shared tree/index without this. Serialize **
 - **Stale reclaim:** if the lock's timestamp is older than the staleness window (default 10 min — an instance died/was dismissed mid-hold), reclaim it.
 
 ## The blackboard cycle (what the loop runs each turn)
-1. **Read** `board.md` + recent `channel.md`. Heartbeat (touch my timestamp).
+1. **Read** `board.md` + recent `channel.md`. Heartbeat (touch my timestamp) — this is a silent internal check, NOT automatically a channel post (see "Idle vs. done" below).
 2. **Pick** the highest-priority task that is (a) in my lane and (b) unblocked (deps done). If none, sleep (long) and re-check.
 3. **Claim** it: acquire baton → set `owner: me`, `status: claimed` → release baton. Post to channel.
 4. **Do the work.** Edit only my claimed files. (Others' claims are off-limits.)
 5. **Verify** per the task's `check`. Coding tasks → self-check it runs, then set `ready-for-verify` (Codex owns the real smoke). Codex verify tasks → run the suite; artifacts to a scratch dir (never committed).
 6. **Commit** at END of the unit of work: acquire baton → `git add` ONLY my files (never `-A`) → commit with a clear message → release baton. Never push.
 7. **Write back:** update the task's status (`done` / `ready-for-verify` / `needs-rework` / `blocked`), post the result to channel.
-8. **Reschedule:** pick the next wake by what I'm waiting on — short if a dependency is about to clear (e.g. a ~2-min Codex gen), long if idle. Then loop.
+8. **Reschedule:** pick the next wake by what I'm waiting on — short if a dependency is about to clear (e.g. a ~2-min Codex gen), long if idle. Then loop. **Unless step 2 found the terminal "done" state below — then don't reschedule at all.**
+
+## Idle vs. done (stop nudging on a fully finished board)
+"Nothing in my lane right now" and "the whole project is genuinely finished" are different states — only the first one should keep the loop running on a long-wake timer.
+- **Idle** (normal, keep looping): the board is empty or has nothing for my lane, but more work is plausibly coming — mid-project, the other instance is still active, or Nefer hasn't weighed in on next steps yet. Long wake, re-check quietly, only post to the channel if something actually changed since last cycle.
+- **Done** (terminal, STOP looping): `board.md`'s Active section is empty, `channel.md`'s last several entries show both instances converged on "nothing left" / everything moved to Done, and neither instance has an open question or unclaimed task waiting. When a cycle detects this, **do not reschedule another wake** — post one clear closing line to the channel (or none, if the other instance already posted one) and let the loop end. Don't keep firing a heartbeat wake that finds nothing every time and re-arms itself anyway; that's a real failure mode (silently burns cycles and floods the channel with repeated "checked, nothing to do" noise) — caught in a real session where one instance correctly stopped and the other kept nudging.
+- If genuinely unsure whether it's idle-mid-project vs. done, treat it as idle once more (long wake) rather than assuming done — but if the NEXT cycle finds the same empty state again with no changes, that's confirmation: stop.
+- Nefer (or the other instance) posting anything new to the board/channel is what restarts the loop — via `/adasplit` again, not a background wake finding it on its own.
 
 ## Fan-out: trivial vs big tasks
 - **Trivial / tightly-coupled** → single-agent + verifier. Claude codes, Codex smokes. Do NOT fan-out — coordination cost exceeds benefit.
