@@ -26,6 +26,11 @@ Nefer can hand a task to either instance; the receiver classifies and routes:
 | Smoke testing / verification | Codex (independent — author never grades own work) |
 | Ghost writes (memory/state) | Claude only |
 
+## Image-gen delivery: batch by section, not all-at-once
+When an image-gen task spans multiple distinct flows/sections (e.g. a "do the whole UI" goal → main-menu art + in-game HUD icons + pause-screen art), Codex delivers **per section as each finishes**, not as one drop at the end of the whole task. Finish the 2-3 pieces for one coherent flow → post them to the channel + update the board for that section → then move to the next section's batch (e.g. 5-6 in-game pieces) → post again. Never sit on a finished, coherent batch just because a later section is still generating.
+- Applies whether the primary split the goal into one board task per section, or parked it as a single multi-section task — even a single task should stream results section-by-section in the notes/channel rather than being treated as one atomic file-list delivery.
+- Reason: shortens the fork-join loop and surfaces style-drift early — the primary can visually review batch 1 and flag a palette/style problem before batch 3 repeats the same mistake, instead of finding out after everything lands at once.
+
 ## The coordination folder
 Default `C:\Users\Taha\Desktop\Ada\Ada\ada-coord\` (same-machine shared dir, NOT a git repo — no sync needed). Bootstrapped on first `/adasplit` if missing. Holds:
 - **`board.md`** — the task ledger + ownership. Single source of truth for who-owns-what.
