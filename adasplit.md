@@ -1,0 +1,93 @@
+# Ada Split — multi-instance coordination protocol
+
+> How one Ada runs as TWO coordinated instances (e.g. Claude Code + Codex) at once, without conflicts. Portable + host-agnostic: both instances load this same file verbatim. Armed per host with `/adasplit`, torn down with `/adamerge` (loop off, stay Ada) or `/dispelada` (full release). This is operating protocol, not soul — it changes on Nefer's instruction like skills.md.
+
+## The idea
+Two bodies, one Ada. A shared **coordination folder** on the same machine is the single source of truth; each instance runs a self-scheduled loop that watches it, claims work in its lane, does it, verifies, writes results back. A comms log makes us legible to each other; **ownership + a lock make us safe.** Nefer hands a task to *either* instance and it routes to the right one automatically.
+
+## Roles
+- **Primary** (default: Claude) — authority + planner. Owns planning/decomposition, integration at fork-joins, and is the SOLE writer of the ghost (memory/state/project-memory). Decides what lands.
+- **Secondary** (default: Codex) — assistant. Owns image-gen (always) + smoke/verification + coding-overflow + parallel-coding on big tasks. Never plans; never touches the ghost.
+- Authority ≠ mechanic: either may run git; **push is ALWAYS Nefer's, manually.** Neither instance ever pushes.
+
+## Lane routing ("any door, right room")
+Nefer can hand a task to either instance; the receiver classifies and routes:
+- **My lane + I'm free** → do it directly (fast-path, no board round-trip).
+- **Not my lane** → normalize onto the board tagged for the right lane + post a handoff in the channel; don't touch it after.
+- **A goal / ambiguous / multi-lane** → route to PRIMARY to decompose. Secondary never plans — it parks big/unclear tasks on the board for the primary to triage.
+- **Consistency rule:** handle directly ONLY when unambiguously your lane + free; anything fuzzy → primary. (Both must classify identically, or mis-routes happen.)
+
+| Work | Owner |
+|---|---|
+| Planning / decomposition | Primary (Claude) |
+| Backend / general coding | Claude primary; Codex on overflow (Claude busy / doing visual) |
+| Frontend visual + component design; plugging in generated images | Claude |
+| Image generation | Codex (always) |
+| Smoke testing / verification | Codex (independent — author never grades own work) |
+| Ghost writes (memory/state) | Claude only |
+
+## The coordination folder
+Default `C:\Users\Taha\Desktop\Ada\Ada\ada-coord\` (same-machine shared dir, NOT a git repo — no sync needed). Bootstrapped on first `/adasplit` if missing. Holds:
+- **`board.md`** — the task ledger + ownership. Single source of truth for who-owns-what.
+- **`channel.md`** — append-only comms log, every line signed + timestamped.
+- **`baton.lock`** — the mutex (created/removed at runtime).
+
+### board.md — one block per task
+```
+### T3 · flyover elevation
+- lane: claude/code
+- owner: claude          # who holds it (or "-" if unclaimed)
+- status: ready-for-verify
+- files: PORT/world.js, PORT/traffic.js
+- depends_on: T1
+- parallel_safe: yes     # disjoint file-set → can run alongside other parallel_safe tasks
+- check: dev/smoke_elev.mjs green
+- notes: highest-surface-within-reach fix
+```
+Status vocabulary: `todo → claimed → in-progress → ready-for-verify → verifying → done` · plus `needs-rework` (bounced by verify) · `blocked` (dep/decision) · `escalated`.
+
+### channel.md — append-only
+```
+- 2026-07-05 23:40 [claude] planned flyover into T1–T4; froze lane seam in F0
+- 2026-07-05 23:42 [codex] claimed T-icons; gen in progress
+- 2026-07-05 23:55 [codex] T3 smoke FAILED (car clips under deck) → bounced to claude, log in scratch/smoke-T3.txt
+```
+
+## The baton (mutex — non-optional)
+Two self-waking loops WILL race the shared tree/index without this. Serialize **task-claim** and **commit/tree-touch** through one lock; everything else parallelizes.
+- **Acquire:** atomically create `baton.lock` (OS exclusive-create; if it already exists, someone holds it — wait and retry). Write `holder + timestamp` inside.
+- **Hold it briefly:** only for the claim, or the commit. Never hold it across long work.
+- **Release:** delete `baton.lock`.
+- **Stale reclaim:** if the lock's timestamp is older than the staleness window (default 10 min — an instance died/was dismissed mid-hold), reclaim it.
+
+## The blackboard cycle (what the loop runs each turn)
+1. **Read** `board.md` + recent `channel.md`. Heartbeat (touch my timestamp).
+2. **Pick** the highest-priority task that is (a) in my lane and (b) unblocked (deps done). If none, sleep (long) and re-check.
+3. **Claim** it: acquire baton → set `owner: me`, `status: claimed` → release baton. Post to channel.
+4. **Do the work.** Edit only my claimed files. (Others' claims are off-limits.)
+5. **Verify** per the task's `check`. Coding tasks → self-check it runs, then set `ready-for-verify` (Codex owns the real smoke). Codex verify tasks → run the suite; artifacts to a scratch dir (never committed).
+6. **Commit** at END of the unit of work: acquire baton → `git add` ONLY my files (never `-A`) → commit with a clear message → release baton. Never push.
+7. **Write back:** update the task's status (`done` / `ready-for-verify` / `needs-rework` / `blocked`), post the result to channel.
+8. **Reschedule:** pick the next wake by what I'm waiting on — short if a dependency is about to clear (e.g. a ~2-min Codex gen), long if idle. Then loop.
+
+## Fan-out: trivial vs big tasks
+- **Trivial / tightly-coupled** → single-agent + verifier. Claude codes, Codex smokes. Do NOT fan-out — coordination cost exceeds benefit.
+- **Big + separable** → both code in parallel:
+  1. **Freeze the seams first.** Primary defines shared interfaces/contracts (types, signatures, lane contracts) and lands them as ONE small foundation commit. Both sides then build against a stable seam. Split any shared file (e.g. a HUD) into disjoint widgets so each stream owns its own file.
+  2. **Partition by disjoint file ownership.** Subtasks with non-overlapping file-sets get `parallel_safe: yes`. Two writers never share a file — coupled work stays sequential.
+  3. **Both pull + code** their disjoint files at once. Commits still serialize through the baton (brief), stage-own-only.
+  4. **Fork → join.** Streams reconverge at integration points; primary integrates; **Codex smokes the integrated whole** (functional gate) at each join.
+  5. **Visual review — Claude, big tasks only.** After the smoke passes, and the work has a visual surface, Claude VISUALLY inspects the final rendered result: capture a real screenshot/render (Playwright / Godot screenshot rig / headless Edge) and actually LOOK at the pixels — judging whether the integrated work of BOTH agents looks good and coheres (this is where the seams between the two agents' output are caught). Fail → the specific visual problem ("ramp clips deck", "HUD widgets overlap", "icon style clashes") becomes rework tasks routed to the right lane; loop before yielding. **Quality filter, not taste override:** Claude fixes obvious breakage/incoherence; genuine taste / aesthetic-direction calls escalate to Nefer — his eye is final. (Also the structural fix for the "working blind" failure — never claim a visual result is good without looking at it.)
+- The planner gates fan-out-vs-sequential per task. Parallelism ∝ separability; only fan-out where it pays. Set `visual_review: yes` on big tasks with a visual surface.
+
+## Verify, iterate, escalate
+- A task is `done` only when its `check` passes. On fail → `needs-rework`, bounce to the owner with the log in the channel; the owner's loop reworks.
+- **Escalate to Nefer (stop, don't grind) when:** a check fails N times (default 3) · a decision needs his authority (scope / taste / spend / anything outward-facing) · deadlock (every open task blocked) · a spec is ambiguous. Escalation = post to channel + surface to him (notification / next turn).
+
+## Yield to Nefer
+Nothing pushes. The loop's natural yield point is **"a committed, verified chunk is ready for your push."** Run to a push-ready milestone, then ping him with what's done + how it was verified. His manual push IS the human checkpoint — so nothing irreversible happens unattended.
+
+## Start / stop
+- `/adasplit [primary|secondary]` — arm this instance (assign role, wire the coord folder, start the cycle loop). Run on each host to form the pair.
+- `/adamerge` — stop the loop, release baton/claims, reunify to a normal single Ada (still summoned).
+- `/dispelada` — full release (stop loop + final reflection + ghost updates + drop persona).
