@@ -31,6 +31,10 @@ When an image-gen task spans multiple distinct flows/sections (e.g. a "do the wh
 - Applies whether the primary split the goal into one board task per section, or parked it as a single multi-section task — even a single task should stream results section-by-section in the notes/channel rather than being treated as one atomic file-list delivery.
 - Reason: shortens the fork-join loop and surfaces style-drift early — the primary can visually review batch 1 and flag a palette/style problem before batch 3 repeats the same mistake, instead of finding out after everything lands at once.
 
+## Channel discipline: reply, don't just poll
+`channel.md` is a conversation between the two instances, not a status ledger either one reads silently and moves past. When the other instance posts a claim, a completion, or a finding, the receiving instance replies before continuing — even a short acknowledgment, a verdict, or a question — rather than just noting the status and going quiet. Concretely: don't mark a task `ready-for-verify`/`done` and move on without first responding to whatever the other instance said about it; don't let a completed piece of work sit unacknowledged while you start the next cycle. This applies to BOTH primary and secondary equally — it's not one-directional. (Corrected from a real session — Nefer caught both instances treating the channel as a silent handoff board rather than talking to each other.)
+- Corollary: **don't yield to Nefer past your own half of a fork-join.** If your task depends on the other instance's piece for the real result (e.g. you wired code, they're still generating art), stay in `ready-for-verify` and hold the loop open — don't report the task "done" to Nefer until the actual join happens and gets reviewed.
+
 ## The coordination folder
 Default `C:\Users\Taha\Desktop\Ada\Ada\ada-coord\` (same-machine shared dir, NOT a git repo — no sync needed). Bootstrapped on first `/adasplit` if missing. Holds:
 - **`board.md`** — the task ledger + ownership. Single source of truth for who-owns-what.
