@@ -71,6 +71,7 @@ Status vocabulary: `todo → claimed → in-progress → ready-for-verify → ve
 - 2026-07-05 23:42 [codex] claimed T-icons; gen in progress
 - 2026-07-05 23:55 [codex] T3 smoke FAILED (car clips under deck) → bounced to claude, log in scratch/smoke-T3.txt
 ```
+Read window is bounded per cycle (see blackboard cycle §1) and the file itself resets every session (see "Channel rotation" below) — it is conversational color, never the source of truth for task state (that's `board.md`).
 
 ## The baton (mutex — non-optional)
 Two self-waking loops WILL race the shared tree/index without this. Serialize **task-claim** and **commit/tree-touch** through one lock; everything else parallelizes.
@@ -80,7 +81,7 @@ Two self-waking loops WILL race the shared tree/index without this. Serialize **
 - **Stale reclaim:** if the lock's timestamp is older than the staleness window (default 10 min — an instance died/was dismissed mid-hold), reclaim it.
 
 ## The blackboard cycle (what the loop runs each turn)
-1. **Read** `board.md` + recent `channel.md`. Heartbeat (touch my timestamp) — this is a silent internal check, NOT automatically a channel post (see "Idle vs. done" below).
+1. **Read** `board.md` in full (it's the actual source of truth for task state) + only the **last 40 lines of `channel.md`** (default; scale with project size, not up for a reflex bump). Missing older entries never loses real state — that lives in `board.md`. If a task genuinely needs older context (an old bounce, a stale-looking `depends_on`), grep `channel.md` for that task ID directly rather than reading the whole file "to be safe." Heartbeat (touch my timestamp) — this is a silent internal check, NOT automatically a channel post (see "Idle vs. done" below).
 2. **Pick** the highest-priority task that is (a) in my lane and (b) unblocked (deps done). If none, sleep (long) and re-check.
 3. **Claim** it: acquire baton → set `owner: me`, `status: claimed` → release baton. Post to channel.
 4. **Do the work.** Edit only my claimed files. (Others' claims are off-limits.)
@@ -95,6 +96,17 @@ Two self-waking loops WILL race the shared tree/index without this. Serialize **
 - **Done** (terminal, STOP looping): `board.md`'s Active section is empty, `channel.md`'s last several entries show both instances converged on "nothing left" / everything moved to Done, and neither instance has an open question or unclaimed task waiting. When a cycle detects this, **do not reschedule another wake** — post one clear closing line to the channel (or none, if the other instance already posted one) and let the loop end. Don't keep firing a heartbeat wake that finds nothing every time and re-arms itself anyway; that's a real failure mode (silently burns cycles and floods the channel with repeated "checked, nothing to do" noise) — caught in a real session where one instance correctly stopped and the other kept nudging.
 - If genuinely unsure whether it's idle-mid-project vs. done, treat it as idle once more (long wake) rather than assuming done — but if the NEXT cycle finds the same empty state again with no changes, that's confirmation: stop.
 - Nefer (or the other instance) posting anything new to the board/channel is what restarts the loop — via `/adasplit` again, not a background wake finding it on its own.
+
+## Channel rotation (keep it from bloating across sessions)
+`channel.md` is append-only WITHIN a session but must never accumulate ACROSS sessions — otherwise every future cycle's bounded read (see blackboard cycle §1) is tailing an ever-growing pile, and the "last 40 lines" default quietly stops meaning "this session" and starts meaning "some random slice of ancient history." Two triggers, not one — never rely on the graceful one alone:
+1. **At session end (happy path).** Whichever instance detects the terminal **Done** state above performs the rotation as its last act, before posting the closing line.
+2. **At `/adasplit` bootstrap (the actual guarantee).** Before doing anything else, check `channel.md`/`board.md` for leftover content. Non-empty at bootstrap means trigger 1 never fired last time (crash, dismissal, ungraceful end — doesn't matter which) — rotate right then, same steps, before starting the new session. This is what makes rotation a guarantee rather than best-effort: it doesn't depend on the previous session having exited cleanly.
+
+Rotation steps (either trigger):
+1. Copy the current `channel.md` to `ada-coord/archive/channel-<YYYY-MM-DD>.md` (create `archive/` if missing).
+2. Truncate the live `channel.md` back to empty so the session starts clean.
+- `board.md` is NOT auto-rotated by either trigger — completed tasks stay or get cleared separately, per Nefer's call. Only the conversational log resets automatically.
+- Archived logs are for digging up "why did we decide X three sessions ago" — never auto-read by either instance's normal cycle.
 
 ## Fan-out: trivial vs big tasks
 - **Trivial / tightly-coupled** → single-agent + verifier. Claude codes, Codex smokes. Do NOT fan-out — coordination cost exceeds benefit.
