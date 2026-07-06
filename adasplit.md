@@ -8,7 +8,17 @@ Two bodies, one Ada. A shared **coordination folder** on the same machine is the
 ## Roles
 - **Primary** (default: Claude) — authority + planner. Owns planning/decomposition, integration at fork-joins, and is the SOLE writer of the ghost (memory/state/project-memory). Decides what lands.
 - **Secondary** (default: Codex) — assistant. Owns image-gen (always) + smoke/verification + coding-overflow + parallel-coding on big tasks. Never plans; never touches the ghost.
+- **Opus** — planning consult, not a blackboard instance. Called by Primary on demand (see "Planning consult: Opus" below); never claims work, never appears on the board, never writes code, never talks to Secondary directly. Invisible to Secondary.
 - Authority ≠ mechanic: either may run git; **push is ALWAYS Nefer's, manually.** Neither instance ever pushes.
+
+## Planning consult: Opus (not a blackboard instance)
+Primary can call **Opus** as a one-off planning consult — not a third instance, not on the board, invisible to Secondary. Each call is a fresh, stateless subagent invocation: Primary hands it the minimal necessary context, gets a plan back, folds it into its own decomposition exactly as it would its own reasoning, and Opus's context evaporates — no standing session, nothing to poll, no shared cache to lose. (This sidesteps the model-switch cache tax entirely: nothing swaps mid-session, it's a separate call.) The plan comes back to Primary ONLY — Primary still decomposes and hands Secondary his exact task, unchanged.
+
+**When to call it (Primary's judgment, not automatic):**
+- **Freezing shared seams on a big/separable task** — before defining the interfaces/contracts a fan-out will build against (see Fan-out §1 below), route the seam design through Opus first on anything above trivial scope. A wrong seam causes rework in both lanes at once — highest-leverage spot for the extra reasoning.
+- **A genuine architectural fork with no obviously-right answer** — competing designs with real long-term tradeoffs, not "many ways to code this feature." If Primary would confidently make the same call twice without hesitating, skip Opus and just decide.
+
+**When NOT to:** routine decomposition, assigning already-clear work to Secondary, anything Primary isn't actually stuck on. Escalating reflexively wastes the call and adds nothing.
 
 ## Lane routing ("any door, right room")
 Nefer can hand a task to either instance; the receiver classifies and routes:
@@ -89,7 +99,7 @@ Two self-waking loops WILL race the shared tree/index without this. Serialize **
 ## Fan-out: trivial vs big tasks
 - **Trivial / tightly-coupled** → single-agent + verifier. Claude codes, Codex smokes. Do NOT fan-out — coordination cost exceeds benefit.
 - **Big + separable** → both code in parallel:
-  1. **Freeze the seams first.** Primary defines shared interfaces/contracts (types, signatures, lane contracts) and lands them as ONE small foundation commit. Both sides then build against a stable seam. Split any shared file (e.g. a HUD) into disjoint widgets so each stream owns its own file.
+  1. **Freeze the seams first.** Primary defines shared interfaces/contracts (types, signatures, lane contracts) and lands them as ONE small foundation commit. On anything above trivial scope, run the seam design through the Opus planning consult first (see above) before landing it. Both sides then build against a stable seam. Split any shared file (e.g. a HUD) into disjoint widgets so each stream owns its own file.
   2. **Partition by disjoint file ownership.** Subtasks with non-overlapping file-sets get `parallel_safe: yes`. Two writers never share a file — coupled work stays sequential.
   3. **Both pull + code** their disjoint files at once. Commits still serialize through the baton (brief), stage-own-only.
   4. **Fork → join.** Streams reconverge at integration points; primary integrates; **Codex smokes the integrated whole** (functional gate) at each join.
@@ -98,6 +108,7 @@ Two self-waking loops WILL race the shared tree/index without this. Serialize **
 
 ## Verify, iterate, escalate
 - A task is `done` only when its `check` passes. On fail → `needs-rework`, bounce to the owner with the log in the channel; the owner's loop reworks.
+- **Escalate to Opus, not Nefer, when** the blocker is a hard reasoning/architecture fork rather than an authority call — see "Planning consult: Opus" above. Reserve Nefer-escalation for what actually needs HIS authority, not more horsepower.
 - **Escalate to Nefer (stop, don't grind) when:** a check fails N times (default 3) · a decision needs his authority (scope / taste / spend / anything outward-facing) · deadlock (every open task blocked) · a spec is ambiguous. Escalation = post to channel + surface to him (notification / next turn).
 
 ## Yield to Nefer
