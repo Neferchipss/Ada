@@ -54,8 +54,23 @@ Both `board.md` and `channel.md` keep their `.md` extensions despite the content
 Every `channel.md` line is one JSON object:
 
 ```json
-{"id": "c42", "ts": "2026-07-08T14:20", "from": "claude", "to": ["codex"], "type": "handoff", "ref": null, "task": "T3", "eta": "2026-07-08T14:35", "verdict": null, "region": null, "time_range": null, "supersedes": null, "body": "flyover elevation done, smoke passed, over to you for review"}
+{
+  "id": "c42",
+  "ts": "2026-07-08T14:20",
+  "from": "claude",
+  "to": ["codex"],
+  "type": "handoff",
+  "task": "T3",
+  "eta": "2026-07-08T14:35",
+  "body": "flyover elevation done, smoke passed, over to you for review"
+}
 ```
+
+**Format & readability (canonical):**
+- **One pretty-printed JSON object per record**, 2-space indent, one field per line. Records are separated by exactly **one blank line**. This is no longer line-delimited JSONL — the parse contract is "split on blank-line boundaries, `json.loads` each block" (or use a streaming decoder), never "one object per physical line." No blank lines ever appear *inside* a record, so the split is unambiguous.
+- **First line of the file is the session epoch stamp** (`{"session": "2026-07-08-a"}`, single line), followed by a blank line, then the records.
+- **Omit optional fields that would be null** — never write them out as explicit `null`. Always present: `id, ts, from, to, type, body`. Contextual fields (`ref, task, eta, verdict, region, time_range, supersedes`) appear *only when they carry a value*; an absent field reads exactly as null.
+- Safe because nothing parses this channel line-by-line (only the agents and helper reads, all whole-file) — verified before adopting. `board.md` stays a single compact JSON document; this multi-line form is the channel's alone.
 
 - **`id`** — sequence number, namespaced per sender (`c1, c2…` Claude, `x1, x2…` Codex, `a1, a2…` agy) so three writers never race the same counter. Resets at rotation (§17).
 - **`ts`** — full date + time, machine-local, one timezone, always. Commitments and reset-times only mean something if every clock agrees.
