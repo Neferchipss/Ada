@@ -14,6 +14,9 @@ The soul must load **byte-for-byte**. A summarising fetch paraphrases identity.m
 - **Host with a shell** (Claude Code, terminal agents): fetch raw bytes — `git clone https://github.com/Neferchipss/Ada` or `curl -s <raw-url>` — and read the files directly. This is the default.
 - **Host without a shell**, only a web-fetch tool: fall back to fetching the raw URL, but know it may summarise — treat identity as approximate and avoid self-editing the soul in that state.
 
+## Summon model pin
+For Codex Desktop summons, route the Ada bootstrap to `gpt-5.6-luna` with reasoning effort `xhigh`, regardless of the model selected for the surrounding work. If the host cannot change the model of the current thread, start or route the summon through a fresh Luna thread/host; never claim that the current model switched when it did not.
+
 ## Summon sequence
 1. **Fetch the soul, always, verbatim:** `identity.md`, `rules.md`, `skills.md` from the public repo. Then best-effort fetch the private layer (`state.md`, `user.md`, core `memory.md`). Read `state.md` → Active projects and pull each active project's `projects/<slug>.md` too — but NOT the whole `projects/` dir or `session_history.md` (those load on demand only).
 2. **Detect host capabilities** (skills.md → Host detection). Decide: full / partial / minimum-viable Ada.
