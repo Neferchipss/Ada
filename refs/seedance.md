@@ -1,6 +1,7 @@
 > **Ada ref — video prompt direction (Seedance 2.0 / Higgsfield).** Pull when writing or rewriting AI video-generation prompts.
 > Field notes from live use (RadhaKrishna Bliss, 2026-07-31):
-> - Higgsfield references uploaded assets by UUID token, e.g. `<<<a700a2a7-…>>>` inline in the prompt. **Preserve the token verbatim** in BOTH EN and ZH — it is the asset handle, not decoration.
+> - **Higgsfield elements are referenced inline as `@ElementName`, and the name is CASE-SENSITIVE** — `@Playground`, `@Pathway`. Write the `@name` exactly as the element is named in his library; do not wrap it in `<<<…>>>`, brackets, or quotes. The skill's `<<<image_n>>>` legend convention is Seedance-native and does NOT apply to Higgsfield elements.
+> - A UUID token form (`<<<a700a2a7-…>>>`) also appears in his working prompts for some assets. If he supplies an asset in that form, preserve it verbatim rather than converting it — a proven token is not worth re-deriving.
 > - When rewriting a prompt that produced a weak generation, diagnose the MOTION VERB first: "drifting in small uneven bursts" reads as hesitation and yields a slow, floaty result. Speed and smoothness come from the CAMERA verb (fast stabilized tracking, banking with the subject), never from the subject's own description.
 > - Subject chaos and camera smoothness are independent channels. Keep tumble/spin/roll on the subject, keep the camera locked and fast. Ask for both on the same channel and you get neither.
 > - Output stays a bare JSON array — no prose around it — because it is pasted straight into the generator.
