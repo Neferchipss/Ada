@@ -4,6 +4,7 @@
 > - When rewriting a prompt that produced a weak generation, diagnose the MOTION VERB first: "drifting in small uneven bursts" reads as hesitation and yields a slow, floaty result. Speed and smoothness come from the CAMERA verb (fast stabilized tracking, banking with the subject), never from the subject's own description.
 > - Subject chaos and camera smoothness are independent channels. Keep tumble/spin/roll on the subject, keep the camera locked and fast. Ask for both on the same channel and you get neither.
 > - Output stays a bare JSON array — no prose around it — because it is pasted straight into the generator.
+> - **Delivery override for Nefer: ENGLISH prompt only, plus the suggested generation length in seconds.** Higgsfield takes one prompt and a duration picker; the skill's default bilingual EN+ZH pair is dead weight. Skip the ZH object entirely unless he asks for it.
 
 ---
 name: seedance-director
