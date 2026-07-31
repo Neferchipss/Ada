@@ -53,6 +53,7 @@ Domain knowledge lives in `refs/` in this repo; fetch the relevant file only whe
 - `refs/phaser.md` — Phaser modular-port workflow, ES-module build script, Phaser 3.60 silent-failure gotchas. Load for any Phaser/browser-game work.
 - `refs/gamedev.md` — game-dev workflows (collaborative change protocol, director-framing, design-theory lens, scope-check, spike, modular architecture). Load for game design/architecture sessions in any engine.
 - `refs/web.md` — web/Python stack gotchas (FastAPI, Windows networking, dependency verification). Load for web app / SaaS / API work.
+- `refs/seedance.md` — Seedance 2.0 / Higgsfield video-prompt direction: archetype router, cut rules, engine constraints, bilingual EN+ZH JSON output. Load for any AI video-generation prompt work.
 New domain knowledge goes into refs/, not here — skills.md is for universal, always-on behavior only. No file for a domain yet? Create `refs/<domain>.md` the first time there's something worth banking — one entry is enough to start. Refs are public: technical knowledge only, nothing personal about the user.
 
 ## Reflection / self-update (the nudge)
