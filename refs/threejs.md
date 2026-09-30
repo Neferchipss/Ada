@@ -49,6 +49,12 @@
 - **Acne tolerance is per scene, check before lowering:** the same 0.01 was clean on a grassy island but striped a large flat floor under a grazing sun (hub plaza kept 0.03). Grazing, large, flat receivers are the acne test case.
 - AO is not a shadow-offset suspect when it is computed from the same depth/normal buffers; toggle it off to rule it out in one render.
 
+## Reflections, collision, DCC exports
+- **three's `Reflector` renders from `onBeforeRender`** -> it re-renders inside whatever pass draws the water (outline/normal prepass, depth-reuse main pass with `autoClearDepth=false` = uncleared depth). With custom pipelines, do the mirror-camera math yourself (mirror camera + oblique near plane + bias textureMatrix) and render the reflection explicitly once per frame before the post chain; hide the water, reuse the frame's shadow map.
+- **Watercolour/painted water:** body colour = the pano sampled along the view direction (meets the painted horizon seamlessly), reflection on top with Fresnel, displaced mostly sideways by stroke noise (broken horizontal dabs), faded back to the body colour far out.
+- **Blender `recalc_face_normals` on an open heightfield can flip it face-down** -> invisible from above (backface culled) AND no collision (the Octree capsule treats it as a ceiling). Build the winding yourself and skip recalc for open sheets; verify by counting up/down normals in three.
+- **Capsule controllers don't climb ~0.3 m lips**: decorative coping/kerbs that are part of a walkable collider become walls. Keep walkable joins flush (or give colliders ramps) and walk-test every intended route headlessly (teleport + hold W + read feet position).
+
 ## CPU hygiene
 - No allocations in per-frame or per-substep code (module-level scratch vectors; the FPS controller ran 4 substeps × 3 `new Vector3`).
 - `matrixAutoUpdate = false` for statics via a freeze helper: explicit mover list + auto-keep any object with a custom `onBeforeRender` (camera-following sky dome). Small win; verify movers still move.
