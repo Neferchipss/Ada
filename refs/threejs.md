@@ -79,3 +79,8 @@
 - three re-renders every shadow map inside EVERY renderer.render() while shadowMap.autoUpdate is on. Multi-pass pipelines (normal prepass, planar reflection, main) pay it N times: set autoUpdate=false + needsUpdate=true once per frame.
 - VSM cost is mostly the blur over the map (texels x blurSamples x 2 passes), not the depth render. 4096 VSM = ~9 ms/frame; 2048 with radius halved = same softness, 5-8 ms cheaper, visually identical. Soft stylised shadows never need 4096.
 - Profile by toggling stages OFF with interleaved A/B runs (full, off, full, off... min of each). Laptop GPU clocks drift; sequential runs gave nonsense (disabling a stage "costing" 10 ms).
+
+## Screen-constant hatching that sticks to surfaces
+- World-anchored lines at fixed metres = fat stripes up close, moire far off. Fix: pick the spacing octave from fwidth: L = log2(fwidth(t) * spacingPx); q = exp2(floor(L)); draw lines at t/q and t/(2q), blend by fract(L). Coarse lines are a subset of fine ones, so the blend never pops. Line width via distance-to-line / fwidth in px.
+- Lambert units: direct = colour * intensity * ndl / PI. Key light intensity PI makes a fully lit face exactly its fill colour - handy for flat-colour NPR thresholds.
+- Hard NPR shadow edges: use a SOFT shadow filter (PCFSoft/VSM) and threshold it in the shader; hard PCF shows the shadow-map texel staircase through the threshold.
