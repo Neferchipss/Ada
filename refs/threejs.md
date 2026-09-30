@@ -1,0 +1,59 @@
+# Ref — three.js / WebGL performance (measured lessons)
+
+> Pull-on-demand domain knowledge. Load for any three.js / WebGL scene, game or viewer work. Not loaded on summon.
+> Everything here was measured on a real project (a stylised toon-shaded first-person game, 2026-09-30), not recalled.
+
+## Measure before optimising
+- **`renderer.info` lies with post-processing.** `info.autoReset` resets on every `renderer.render()` call, so with EffectComposer you only see the last pass. Set `autoReset = false` and `info.reset()` at frame start. Wrap `renderer.render` and `renderer.shadowMap.render` to split counts per pass (shadow / prepass / main / post).
+- **Scene triangles vs frame triangles.** If the frame draws ~5x the unique scene triangles, a pass is redrawing everything (outline/normal prepass, depth prepass). That ratio finds the real cost faster than any mesh audit.
+- **Raw `InstancedBufferGeometry` hides its cost** from probes that read `index.count` only (98k grass blades × 8 tris = 783k looked like 8 tris). Multiply by `instanceCount`.
+- **GPU time:** `EXT_disjoint_timer_query_webgl2` works in desktop Chrome. Only ONE `TIME_ELAPSED` query may be active → a single shared timer module; results land 1–3 frames late; discard when `GPU_DISJOINT_EXT` is set.
+- **Which GPU?** `WEBGL_debug_renderer_info` → iGPU vs dGPU vs SwiftShader (software). Dual-GPU laptops: `new WebGLRenderer({ powerPreference: 'high-performance' })` (a hint) + Windows Graphics settings → High performance for the browser.
+- **Headless benchmarks** (Playwright): `--use-angle=d3d11 --enable-gpu --ignore-gpu-blocklist`, `gl.finish()` per frame, best-of-N, **interleave A/B rounds**. Check GPU contention FIRST: `nvidia-smi pmon -c 1 -s u` — a background desktop app (Electron/ChatGPT) pinned the GPU at 79% and swung identical builds 10x. Download/VRAM/triangle numbers survive contention; frame times don't.
+- **World-entry hitch probe:** rAF interval log; exclude the one interval that spans the load promise resolving (it contains the load tail, not a visible hitch).
+- **Debug views without rewriting shaders:** per-object clone of the object's OWN material; in `onBeforeCompile` rename the fragment `void main()` → `_dbgMain()` and append `void main(){ _dbgMain(); <override gl_FragColor> }`. Vertex displacement, instancing and `discard` stay intact. Share uniforms (`clone.uniforms = { ...orig.uniforms }`) so animation keeps running; `customProgramCacheKey = origKey + '|dbgN'`. Useful set: wireframe, **overdraw** (additive `1.0` into a HalfFloat RT with depthTest off, then a heat-ramp quad), **draw-call colours** (each clone is a distinct material → per-object uniform uploads), normal/outline buffers.
+
+## Textures
+- WebP/PNG/JPG only shrink the DOWNLOAD; the GPU holds RGBA8 (4096² + mips ≈ 90 MB). **KTX2/Basis stays block-compressed in VRAM** (~4x less; 114.7 → 34.7 MB measured).
+- **ETC1S** for albedo/colour (download ≈ WebP size, looks identical on painted textures). **UASTC** for normal maps (ETC1S smears normals). Neither for smooth gradients (skies, UI — band) or HDR.
+- Lossy WebP on normal maps: 4:2:0 chroma subsampling hits the XY channels + block artefacts speckle under hard toon ramps. Keep normals lossless or UASTC.
+- `toktx` recipes: `--t2 --genmipmap --lower_left_maps_to_s0t0` (compressed textures can't `flipY` on upload — encode flipped to match a flipY'd layout); albedo `--encode etc1s --clevel 4 --qlevel 255 --assign_oetf srgb`; normals `--encode uastc --uastc_quality 2 --zcmp 19 --assign_oetf linear`. UASTC on a 2k normal map takes minutes (RDO even longer). KTX-Software on Windows ships only an NSIS `.exe` → 7-Zip extract, no install needed.
+- `KTX2Loader`: copy `three/examples/jsm/libs/basis/*` to public, `.setTranscoderPath(...).detectSupport(renderer)`. For textures inside GLBs just use `gltf-transform etc1s|uastc`.
+- **Level atlas:** gutter-padded tiles, sample `fract(uv)` inside the inner rect with `textureGrad(dFdx(unwrappedUv))` → seamless tiling + correct mips. Integer ids through varyings arrive as 7.9999 → `floor(x + 0.5)`.
+
+## Meshes
+- **Draco vs meshopt:** `gltf-transform meshopt` quantizes and moves dequantization into NODE transforms (often non-uniform scale) → breaks any code that samples geometry in local space (scatter, billboard cards). Its default interleaved layout also breaks `mergeGeometries`. **Draco decodes to plain float local-space attributes → drop-in.** Measured: 5.3 MB → 0.64 MB (−88%), static meshes within 0.1 mm, zero-area tris dropped, +~55 ms decode vs raw parse (pays back on any real connection).
+- Keep the raw DCC export and write `<name>.draco.glb` inside the export step itself (so it can't go stale); keep a `?draco=0` A/B switch.
+- **Brotli on top:** Draco GLB −31–53%, decoder `.wasm`/`.js` −61–83%, KTX2/JPG ~0%. Many hosts don't compress `model/gltf-binary` on the fly → ship precompressed `.br`/`.gz` siblings (post-build script with `node:zlib`).
+
+## Draw & fill cost
+- **Merging statics into one mesh cuts draw calls but kills frustum culling** (its bounding sphere is the world). Merge per spatial cell instead.
+- One `InstancedMesh` spread all around the camera (cloud ring) is never culled → split by sector. It can also be the worst overdraw in the scene (17+ layers).
+- **Grass/foliage:** chunk into cells with explicit `boundingBox/Sphere` (frustum culling back on), plus distance LOD by a per-blade stable **keep-rank** attribute: sort each chunk by rank, per frame `instanceCount = N · keep(nearest chunk distance)`, the shader moves blades with `rank ≥ keep(own distance)` outside clip space and widens survivors by `1/sqrt(keep)`. Per-blade, so no seams at chunk borders.
+- **Seeded scatter** (mulberry32, one stream per builder): `Math.random` layouts change every load, which breaks A/B screenshots and any gameplay tied to layout.
+- **Depth reuse** (when a full-scene normal/depth prepass already exists, e.g. for ink outlines): render the main pass into an RT that SHARES the prepass `DepthTexture` (`rtB.depthTexture = rtA.depthTexture` works), with `autoClearDepth = false` → hidden fragments die before shading. Requirements, each learned the hard way:
+  - prepass materials `polygonOffset` (factor 1, units 1) so surfaces never reject themselves;
+  - see-through objects get a no-depth cover in the prepass (`transparent: true, depthWrite: false, blending: NoBlending`) or everything behind them vanishes;
+  - objects NOT in the prepass must not write depth in the main pass (they would leak into the depth consumer, e.g. grow ink);
+  - `discard`/alphaTest materials: `depthWrite = false` in the main pass to keep early-z;
+  - **every prepass material must reproduce the main vertex displacement exactly** — build it from the main `vertexShader` string with shared uniforms. A cloud cover missing breathe/drift rendered half-empty bubbles.
+- `ShaderPass`: `textureID = null` stops it overwriting `tDiffuse` with `readBuffer`, so it can read a custom target.
+- EffectComposer render targets have no MSAA; renderer `antialias` only affects the default framebuffer. UnrealBloom is ~10+ fullscreen passes (half-res is a cheap win).
+
+## Hitches
+- **`renderer.compile()` / `compileAsync()` compile for the CURRENT render target.** Called with target `null` they build tone-mapped screen variants; a scene that really renders into a composer RT (NoToneMapping) then still compiles on its first visible frame. Wrap the call: `setRenderTarget(realTarget)` → `compileAsync` (its sync part collects programs) → restore. Material-swapped passes: swap → compile → swap back.
+- **ANGLE/D3D11 finishes shaders per vertex layout on first draw** → one warm-up render under the loading cover with `frustumCulled = false` on everything; `renderer.initTexture()` every texture (KTX2 uploads). Measured: 1.5–3.6 s first-frame freeze → <100 ms warm.
+
+## CPU hygiene
+- No allocations in per-frame or per-substep code (module-level scratch vectors; the FPS controller ran 4 substeps × 3 `new Vector3`).
+- `matrixAutoUpdate = false` for statics via a freeze helper: explicit mover list + auto-keep any object with a custom `onBeforeRender` (camera-following sky dome). Small win; verify movers still move.
+
+## Loading
+- **Prefetch the next level while idle into `THREE.Cache`** (`Cache.enabled = true`), loading each file with the loader type its real consumer uses — the cache is keyed by URL only (`ImageLoader` stores an Image, `FileLoader` arraybuffer/text/json). Result: 0 requests on entry regardless of host cache headers. Prune the cache after each build (it keeps everything forever otherwise).
+- Vite dev serves `public/` without cache validators → HTTP-cache prefetching looks useless locally; test prefetch against the real host or use the in-memory cache.
+
+## Dynamic resolution
+- Steps `[1, .85, .72, .6, .5]` × base DPR (cap 2). Per 1 s window take p75 GPU ms: step down if > budget·1.1, up if < budget·0.6 and ≥ 2 s since the last change; ignore 1.5 s after each change (RT reallocation). EffectComposer caches pixel ratio at construction → `composer.setPixelRatio()` on change. Disable under automation (`navigator.webdriver`) so benchmarks stay fixed-res. Toon shading + ink hide 50% well.
+
+## Scope calls
+- **"Nanite for three.js":** cluster LOD (meshoptimizer clusters) + CPU per-cluster selection through `BatchedMesh` is feasible in WebGL2 (weeks). GPU culling/indirect draws need WebGPU; the software rasterizer needs 64-bit atomics (absent). Every triangle must also be downloaded. For stylised low-poly worlds the cost is instances, overdraw and extra passes — Nanite fixes none of those.
