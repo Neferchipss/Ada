@@ -44,6 +44,11 @@
 - **`renderer.compile()` / `compileAsync()` compile for the CURRENT render target.** Called with target `null` they build tone-mapped screen variants; a scene that really renders into a composer RT (NoToneMapping) then still compiles on its first visible frame. Wrap the call: `setRenderTarget(realTarget)` → `compileAsync` (its sync part collects programs) → restore. Material-swapped passes: swap → compile → swap back.
 - **ANGLE/D3D11 finishes shaders per vertex layout on first draw** → one warm-up render under the loading cover with `frustumCulled = false` on everything; `renderer.initTexture()` every texture (KTX2 uploads). Measured: 1.5–3.6 s first-frame freeze → <100 ms warm.
 
+## Shadows
+- **Detached shadows / light leaking at contacts = `shadow.normalBias` too high** ("peter-panning"): it offsets the shadow lookup along the surface normal, so the leak appears only where the surface/sun angle makes it large ("some places, not all"). Verify by prediction: raise normalBias and the lit gap must grow. Fix: lower it (0.05 → 0.01 fixed a windmill balcony), keep a small constant `bias` for acne.
+- **Acne tolerance is per scene, check before lowering:** the same 0.01 was clean on a grassy island but striped a large flat floor under a grazing sun (hub plaza kept 0.03). Grazing, large, flat receivers are the acne test case.
+- AO is not a shadow-offset suspect when it is computed from the same depth/normal buffers; toggle it off to rule it out in one render.
+
 ## CPU hygiene
 - No allocations in per-frame or per-substep code (module-level scratch vectors; the FPS controller ran 4 substeps × 3 `new Vector3`).
 - `matrixAutoUpdate = false` for statics via a freeze helper: explicit mover list + auto-keep any object with a custom `onBeforeRender` (camera-following sky dome). Small win; verify movers still move.
