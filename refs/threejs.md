@@ -74,3 +74,8 @@
 
 ## Scope calls
 - **"Nanite for three.js":** cluster LOD (meshoptimizer clusters) + CPU per-cluster selection through `BatchedMesh` is feasible in WebGL2 (weeks). GPU culling/indirect draws need WebGPU; the software rasterizer needs 64-bit atomics (absent). Every triangle must also be downloaded. For stylised low-poly worlds the cost is instances, overdraw and extra passes — Nanite fixes none of those.
+
+## Shadow cost (measured, RTX 3060 laptop, 1080p)
+- three re-renders every shadow map inside EVERY renderer.render() while shadowMap.autoUpdate is on. Multi-pass pipelines (normal prepass, planar reflection, main) pay it N times: set autoUpdate=false + needsUpdate=true once per frame.
+- VSM cost is mostly the blur over the map (texels x blurSamples x 2 passes), not the depth render. 4096 VSM = ~9 ms/frame; 2048 with radius halved = same softness, 5-8 ms cheaper, visually identical. Soft stylised shadows never need 4096.
+- Profile by toggling stages OFF with interleaved A/B runs (full, off, full, off... min of each). Laptop GPU clocks drift; sequential runs gave nonsense (disabling a stage "costing" 10 ms).
