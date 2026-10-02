@@ -84,6 +84,7 @@
 - World-anchored lines at fixed metres = fat stripes up close, moire far off. Fix: pick the spacing octave from fwidth: L = log2(fwidth(t) * spacingPx); q = exp2(floor(L)); draw lines at t/q and t/(2q), blend by fract(L). Coarse lines are a subset of fine ones, so the blend never pops. Line width via distance-to-line / fwidth in px.
 - Lambert units: direct = colour * intensity * ndl / PI. Key light intensity PI makes a fully lit face exactly its fill colour - handy for flat-colour NPR thresholds.
 - Hard NPR shadow edges: use a SOFT shadow filter (PCFSoft/VSM) and threshold it in the shader; hard PCF shows the shadow-map texel staircase through the threshold.
+- Stroke-filled NPR shadows: never jitter the light/shadow THRESHOLD per stroke - a moving terminator reads as broken lighting, not sketchiness. Strokes may only modulate tone inside a fixed-edge shadow. AO-only ink hatching (short dashes ~0.6x outline width) reads as drawn; camera-facing foliage cards can carry their own occlusion attribute into the normal prepass so the composite hatches them too.
 
 ## NPR outlines: false edges on grazing surfaces
 Depth-break outline detectors that compare raw neighbour depth (|z - z0| / z) fire on floors and walls seen at a grazing angle, where depth changes fast but linearly. With wobble/boil noise on the sample position they show up as animated blobs. Fix: second difference against the neighbour plane, |zL + zR - 2 z0| / z (and the same vertically). A plane gives ~0; a real silhouette still gives the full gap.
