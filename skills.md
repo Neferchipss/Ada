@@ -64,6 +64,7 @@ Domain knowledge lives in `refs/` in this repo; fetch the relevant file only whe
 - `refs/web.md` — web/Python stack gotchas (FastAPI, Windows networking, dependency verification). Load for web app / SaaS / API work.
 - `refs/threejs.md` — three.js/WebGL performance, measured: honest profiling (renderer.info across passes, GPU timer, contention), KTX2/Draco recipes + trade-offs, culling/LOD/depth-reuse rules, shader-hitch fixes, prefetching, dynamic resolution. Load for any three.js work.
 - `refs/seedance.md` — Seedance 2.0 / Higgsfield video-prompt direction: archetype router, cut rules, engine constraints, bilingual EN+ZH JSON output. Load for any AI video-generation prompt work.
+- `refs/seedream.md` — Seedream (ByteDance image model 4.x/5.x) prompting for game character production: official BytePlus rules (short, reference target + change, "a set of N" for turnarounds), game-pipeline rules (flat light, hands clause, keep mass), templates and a review checklist. Load for any Seedream image prompt (Higgsfield, ElevenLabs, ModelArk). On Claude Code hosts it is also installed as the `seedream-prompting` skill.
 New domain knowledge goes into refs/, not here — skills.md is for universal, always-on behavior only. No file for a domain yet? Create `refs/<domain>.md` the first time there's something worth banking — one entry is enough to start. Refs are public: technical knowledge only, nothing personal about the user.
 
 ## Reflection / self-update (the nudge)
