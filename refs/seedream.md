@@ -47,6 +47,10 @@ Source: official BytePlus ModelArk "Seedream 4.0-4.5 prompt guide"
 **Multi-image combine (clay + face + materials)**
 > Game production character reference for 3D modelling and texturing. Keep the exact shape and pose of Image 1. Use the face of Image 2. Use Image 3 for the hair, Image 4 for the armour plates, Image 5 for the brass fittings. Front view, flat neutral light, plain light-grey background.
 
+**Back view from the other views (works best)**
+Give it every view you already have, numbered, then ask for the missing one. With only the front it guessed the head and horns wrong (head over the hump, horn tips up); with front + left + right it got them right.
+> Character turnaround reference for 3D modelling. Image 1 is the front view, Image 2 the left side, Image 3 the right side of the same creature. Generate the matching back view, seen from directly behind, keeping his body shape, mass, proportions and A-pose arms. [What the side views imply, e.g. the hump hides the head; the horns curve out and down.] Flat neutral light, plain light-grey background.
+
 ## Review checklist
 
 1. Is the angle right? A true profile shows one eye and one horn, and the chest is seen edge-on. A 3/4 view means the prompt was too soft; ask again more briefly, or use the "set of N" template.
